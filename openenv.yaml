@@ -1,0 +1,52 @@
+<<<<<<< HEAD
+name: workplace-decision-engine
+description: >
+  A real-world AI workplace simulation where agents manage tasks,
+  prioritize decisions, and complete actions in a dynamic office environment.
+
+version: 1.0
+
+entry_point: env:WorkplaceEnv
+
+observation_space:
+  type: object
+  description: List of tasks with priority and status
+
+action_space:
+  type: object
+  description: Action type and task ID
+
+reward:
+  type: float
+  range: [-1.0, 1.0]
+
+tasks:
+  - easy
+  - medium
+=======
+name: workplace-decision-engine
+description: >
+  A real-world AI workplace simulation where agents manage tasks,
+  prioritize decisions, and complete actions in a dynamic office environment.
+
+version: 1.0
+
+entry_point: env:WorkplaceEnv
+
+observation_space:
+  type: object
+  description: List of tasks with priority and status
+
+action_space:
+  type: object
+  description: Action type and task ID
+
+reward:
+  type: float
+  range: [-1.0, 1.0]
+
+tasks:
+  - easy
+  - medium
+>>>>>>> 0c94d1aa3ad327c92e2fbd0af7b279095d94b96a
+  - hard
