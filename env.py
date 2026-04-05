@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 from typing import List
 from pydantic import BaseModel
 from tasks import Task, easy_task   # ✅ import Task from tasks.py
@@ -53,7 +53,7 @@ class WorkplaceEnv:
 
     def _get_observation(self):
         return Observation(tasks=self.tasks)
-=======
+
 def reset(self):
     from email_reader import fetch_unread_emails
     from email_to_task import emails_to_tasks, easy_task
@@ -89,4 +89,4 @@ def reset(self):
 
     self.step_count = 0
     return self._get_observation()
->>>>>>> 0c94d1aa3ad327c92e2fbd0af7b279095d94b96a
+ 

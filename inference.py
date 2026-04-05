@@ -1,58 +1,58 @@
-from models import Task, Action
+from fastapi import FastAPI
+from env import WorkplaceEnv
+from models import Action
 
-# ✅ STATIC TASKS (guaranteed working)
-def get_tasks():
-    return [
-        Task(id=1, description="Login issue", priority="high", status="pending"),
-        Task(id=2, description="Schedule meeting", priority="medium", status="pending"),
-        Task(id=3, description="Lunch plan", priority="low", status="pending"),
-    ]
+app = FastAPI()
 
 
 def choose_action(task):
-    if task.priority == "high":
-        return "complete"
-    elif task.priority == "medium":
-        return "schedule"
+    desc = task.description.lower()
+
+    if "login" in desc:
+        return Action(action_type="complete", task_id=task.id)
+
+    elif "refund" in desc:
+        return Action(action_type="complete", task_id=task.id)
+
+    elif "meeting" in desc:
+        return Action(action_type="schedule", task_id=task.id)
+
     else:
-        return "respond"
+        return Action(action_type="respond", task_id=task.id)
 
 
-# ✅ FINAL DEMO FUNCTION
+@app.get("/")
+def home():
+    return {"message": "Workplace Decision Engine Running ✅"}
+
+
+@app.get("/run-demo")
 def run_demo():
-    tasks = get_tasks()
+    env = WorkplaceEnv()
+    obs = env.reset()
 
     logs = []
     logs.append("START")
 
-    score = 0
+    done = False
 
-    for task in tasks:
-        action = choose_action(task)
+    while not done:
+        for task in obs.tasks:
+            if task.status == "completed":
+                continue
 
-        # simple reward logic
-        if task.priority == "high" and action == "complete":
-            reward = 1.0
-        elif task.priority == "medium" and action == "schedule":
-            reward = 0.5
-        else:
-            reward = 0.2
+            action = choose_action(task)
 
-        score += reward
+            obs, reward, done, info = env.step(action)
 
-        logs.append(
-            f"STEP | action={action} | reward={reward:.2f} | score={score:.2f}"
-        )
+            logs.append(
+                f"STEP | action={action.action_type} | reward={reward:.2f} | score={info['score']:.2f}"
+            )
+
+            if done:
+                break
 
     logs.append("END")
-    logs.append(f"FINAL_SCORE: {score:.2f}")
+    logs.append(f"FINAL_SCORE: {info['score']:.2f}")
 
     return {"logs": logs}
-
-
-# ✅ LOCAL RUN
-if __name__ == "__main__":
-    result = run_demo()
-
-    for line in result["logs"]:
-        print(line)
