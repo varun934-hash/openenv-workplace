@@ -19,7 +19,6 @@ def choose_action(task):
         return Action(action_type="respond", task_id=task.id)
 
 
-# ✅ ROOT (VISIBLE PAGE)
 @app.get("/", response_class=HTMLResponse)
 def home():
     return """
@@ -29,41 +28,34 @@ def home():
     """
 
 
-# ✅ DEMO (VISIBLE OUTPUT)
 @app.get("/run-demo", response_class=HTMLResponse)
 def run_demo():
-    env = WorkplaceEnv()
-    obs = env.reset()
+    try:
+        env = WorkplaceEnv()
+        obs = env.reset()
 
-    logs = []
-    logs.append("START")
+        logs = ["START"]
+        done = False
 
-    done = False
+        while not done:
+            for task in obs.tasks:
+                if task.status == "completed":
+                    continue
 
-    while not done:
-        for task in obs.tasks:
-            if task.status == "completed":
-                continue
+                action = choose_action(task)
+                obs, reward, done, info = env.step(action)
 
-            action = choose_action(task)
-            obs, reward, done, info = env.step(action)
+                logs.append(
+                    f"STEP | action={action.action_type} | reward={reward:.2f} | score={info['score']:.2f}"
+                )
 
-            logs.append(
-                f"STEP | action={action.action_type} | reward={reward:.2f} | score={info['score']:.2f}"
-            )
+                if done:
+                    break
 
-            if done:
-                break
+        logs.append("END")
+        logs.append(f"FINAL_SCORE: {info['score']:.2f}")
 
-    logs.append("END")
-    logs.append(f"FINAL_SCORE: {info['score']:.2f}")
+        return "<br>".join(logs)
 
-    # Convert logs to HTML
-    html_logs = "<br>".join(logs)
-
-    return f"""
-    <h2>🚀 Demo Output</h2>
-    <p>{html_logs}</p>
-    <br>
-    <a href="/">⬅ Back</a>
-    """
+    except Exception as e:
+        return f"<h3>❌ Error:</h3><pre>{str(e)}</pre>"
