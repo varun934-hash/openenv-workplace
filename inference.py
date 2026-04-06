@@ -1,61 +1,78 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 from env import WorkplaceEnv
 from models import Action
 
 app = FastAPI()
 
-
-def choose_action(task):
-    desc = task.description.lower()
-
-    if "refund" in desc or "login" in desc:
-        return Action(action_type="complete", task_id=task.id)
-
-    elif "meeting" in desc:
-        return Action(action_type="schedule", task_id=task.id)
-
-    else:
-        return Action(action_type="respond", task_id=task.id)
+env = WorkplaceEnv()
 
 
-@app.get("/", response_class=HTMLResponse)
+# ✅ Request format for step
+class StepRequest(BaseModel):
+    action_type: str
+    task_id: int
+
+
+# ✅ ROOT
+@app.get("/")
 def home():
-    return """
-    <h1>✅ Workplace Decision Engine</h1>
-    <p>Status: Running</p>
-    <a href="/run-demo">▶ Run Demo</a>
-    """
+    return {"message": "Workplace Decision Engine Running ✅"}
 
 
-@app.get("/run-demo", response_class=HTMLResponse)
+# ✅ REQUIRED: RESET API
+@app.post("/reset")
+def reset():
+    obs = env.reset()
+
+    return {
+        "tasks": [task.dict() for task in obs.tasks]
+    }
+
+
+# ✅ REQUIRED: STEP API
+@app.post("/step")
+def step(request: StepRequest):
+    action = Action(
+        action_type=request.action_type,
+        task_id=request.task_id
+    )
+
+    obs, reward, done, info = env.step(action)
+
+    return {
+        "tasks": [task.dict() for task in obs.tasks],
+        "reward": reward,
+        "done": done,
+        "score": info["score"]
+    }
+
+
+# ✅ OPTIONAL DEMO (for your testing)
+@app.get("/run-demo")
 def run_demo():
-    try:
-        env = WorkplaceEnv()
-        obs = env.reset()
+    obs = env.reset()
 
-        logs = ["START"]
-        done = False
+    logs = ["START"]
+    done = False
 
-        while not done:
-            for task in obs.tasks:
-                if task.status == "completed":
-                    continue
+    while not done:
+        for task in obs.tasks:
+            if task.status == "completed":
+                continue
 
-                action = choose_action(task)
-                obs, reward, done, info = env.step(action)
+            action = Action(action_type="complete", task_id=task.id)
 
-                logs.append(
-                    f"STEP | action={action.action_type} | reward={reward:.2f} | score={info['score']:.2f}"
-                )
+            obs, reward, done, info = env.step(action)
 
-                if done:
-                    break
+            logs.append(
+                f"STEP | action={action.action_type} | reward={reward:.2f} | score={info['score']:.2f}"
+            )
 
-        logs.append("END")
-        logs.append(f"FINAL_SCORE: {info['score']:.2f}")
+            if done:
+                break
 
-        return "<br>".join(logs)
+    logs.append("END")
+    logs.append(f"FINAL_SCORE: {info['score']:.2f}")
 
-    except Exception as e:
-        return f"<h3>❌ Error:</h3><pre>{str(e)}</pre>"
+    return {"logs": logs}
