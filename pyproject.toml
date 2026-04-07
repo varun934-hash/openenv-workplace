@@ -1,16 +1,12 @@
 [project]
 name = "workplace-decision-engine"
 version = "0.1.0"
-description = "Workplace Decision Engine for task prioritization and automation"
-authors = [
-    {name = "Varun"}
-]
 dependencies = [
     "fastapi",
     "uvicorn",
-    "pydantic"
+    "pydantic",
+    "openenv-core>=0.2.0"
 ]
 
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+[project.scripts]
+server = "server.app:main"

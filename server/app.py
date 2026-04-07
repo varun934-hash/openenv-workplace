@@ -1,12 +1,48 @@
-from fastapi import FastAPI
-from inference import run_demo
+from env import WorkplaceEnv
+from models import Action
 
-app = FastAPI()
 
-@app.get("/")
-def root():
-    return {"message": "Workplace Decision Engine Running"}
+def choose_action(task):
+    desc = task.description.lower()
 
-@app.get("/run-demo")
-def demo():
-    return run_demo()
+    if "refund" in desc or "login" in desc:
+        return Action(action_type="complete", task_id=task.id)
+
+    elif "meeting" in desc:
+        return Action(action_type="schedule", task_id=task.id)
+
+    else:
+        return Action(action_type="respond", task_id=task.id)
+
+
+def main():
+    env = WorkplaceEnv()
+    obs = env.reset()
+
+    print("START")
+
+    done = False
+
+    while not done:
+        for task in obs.tasks:
+            if task.status == "completed":
+                continue
+
+            action = choose_action(task)
+
+            obs, reward, done, info = env.step(action)
+
+            print(
+                f"STEP | action={action.action_type} | reward={reward:.2f} | score={info['score']:.2f}"
+            )
+
+            if done:
+                break
+
+    print("END")
+    print(f"FINAL_SCORE: {info['score']:.2f}")
+
+
+# ✅ VERY IMPORTANT (required)
+if __name__ == "__main__":
+    main()
