@@ -1,10 +1,17 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 from env import WorkplaceEnv
 from models import Action
 
 app = FastAPI()
 
+# Global env
+env = WorkplaceEnv()
 
+
+# -------------------------------
+# Helper function
+# -------------------------------
 def choose_action(task):
     desc = task.description.lower()
 
@@ -18,8 +25,52 @@ def choose_action(task):
         return Action(action_type="respond", task_id=task.id)
 
 
-def run_simulation():
-    env = WorkplaceEnv()
+# -------------------------------
+# ROOT
+# -------------------------------
+@app.get("/")
+def root():
+    return {"status": "running"}
+
+
+# -------------------------------
+# RESET (IMPORTANT)
+# -------------------------------
+@app.post("/reset")
+def reset():
+    obs = env.reset()
+    return {
+        "tasks": [task.dict() for task in obs.tasks]
+    }
+
+
+# -------------------------------
+# STEP (IMPORTANT)
+# -------------------------------
+class StepRequest(BaseModel):
+    action_type: str
+    task_id: int
+
+
+@app.post("/step")
+def step(req: StepRequest):
+    action = Action(action_type=req.action_type, task_id=req.task_id)
+
+    obs, reward, done, info = env.step(action)
+
+    return {
+        "tasks": [task.dict() for task in obs.tasks],
+        "reward": reward,
+        "done": done,
+        "score": info["score"]
+    }
+
+
+# -------------------------------
+# RUN DEMO (FOR SCALER)
+# -------------------------------
+@app.get("/run-demo")
+def run_demo():
     obs = env.reset()
 
     step_count = 0
@@ -39,6 +90,7 @@ def run_simulation():
                 continue
 
             action = choose_action(task)
+
             obs, reward, done, info = env.step(action)
 
             step_count += 1
@@ -56,15 +108,4 @@ def run_simulation():
     print(end_log, flush=True)
     logs.append(end_log)
 
-    return logs
-
-
-@app.get("/")
-def root():
-    return {"status": "running"}
-
-
-@app.get("/run-demo")
-def run_demo():
-    logs = run_simulation()
     return {"logs": logs}
