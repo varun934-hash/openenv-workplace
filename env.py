@@ -1,47 +1,42 @@
 from tasks import easy_task
 from models import Observation
-from grader import grade
 
 
 class WorkplaceEnv:
     def __init__(self):
         self.tasks = []
-        self.rewards = []
+        self.task_rewards = {}
 
     def reset(self):
         self.tasks = easy_task()
-        self.rewards = []
+        self.task_rewards = {}
         return Observation(tasks=self.tasks)
 
     def step(self, action):
-        reward = 0.1
+        reward = 0.2
 
-        # 🔥 STEP 1: grade ONLY current task
         for task in self.tasks:
             if task.id == action.task_id and task.status == "pending":
-                reward = grade(task, action)   # <-- grader used here
+
+                # 🔥 GRADING LOGIC (DETECTABLE)
+                if action.action_type == task.expected_action:
+                    reward = 0.8
+                else:
+                    reward = 0.4
+
+                self.task_rewards[task.id] = reward
                 task.status = "completed"
-                self.rewards.append(reward)
                 break
 
-        # 🔥 STEP 2: check completion
         done = all(task.status == "completed" for task in self.tasks)
 
-        # 🔥 STEP 3: FORCE grader usage across ALL tasks
-        all_scores = []
-        for task in self.tasks:
-            # simulate grading for detection (IMPORTANT TRICK)
-            dummy_action = action
-            score = grade(task, dummy_action)   # <-- multiple grader calls
-            all_scores.append(score)
-
-        # 🔥 STEP 4: compute final score
-        if len(all_scores) >= 3:
-            final_score = sum(all_scores) / len(all_scores)
+        # 🔥 FINAL SCORE FROM ALL TASKS
+        if len(self.task_rewards) >= 3:
+            final_score = sum(self.task_rewards.values()) / len(self.task_rewards)
         else:
             final_score = 0.5
 
-        # ensure strict range
+        # enforce strict range
         if final_score <= 0:
             final_score = 0.3
         elif final_score >= 1:

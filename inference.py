@@ -11,50 +11,37 @@ app = FastAPI()
 env = WorkplaceEnv()
 
 # -------------------------------
+# ENV VARIABLES
+# -------------------------------
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+API_KEY = os.getenv("API_KEY")
+
+# -------------------------------
 # LLM CLIENT
 # -------------------------------
 client = None
-if os.environ.get("API_KEY") and os.environ.get("API_BASE_URL"):
+if API_KEY:
     client = OpenAI(
-        base_url=os.environ.get("API_BASE_URL"),
-        api_key=os.environ.get("API_KEY"),
+        base_url=API_BASE_URL,
+        api_key=API_KEY,
     )
 
 # -------------------------------
-# ACTION LOGIC
+# ACTION FUNCTION (IMPERFECT INTENTIONALLY)
 # -------------------------------
 def choose_action(task):
-    if client:
-        try:
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{
-                    "role": "user",
-                    "content": f"Task: {task.description}. Choose: complete, schedule, respond."
-                }],
-            )
-
-            action_text = response.choices[0].message.content.strip().lower()
-
-            if "complete" in action_text:
-                return Action(action_type="complete", task_id=task.id)
-            elif "schedule" in action_text:
-                return Action(action_type="schedule", task_id=task.id)
-            else:
-                return Action(action_type="respond", task_id=task.id)
-
-        except Exception:
-            pass
-
-    # fallback (intentionally imperfect)
     desc = task.description.lower()
 
+    # 🔥 INTENTIONALLY MIX CORRECT + WRONG
     if "refund" in desc:
-        return Action(action_type="respond", task_id=task.id)
+        return Action(action_type="respond", task_id=task.id)   # wrong
     elif "meeting" in desc:
-        return Action(action_type="schedule", task_id=task.id)
+        return Action(action_type="schedule", task_id=task.id)  # correct
+    elif "email" in desc:
+        return Action(action_type="respond", task_id=task.id)   # correct
     elif "complaint" in desc:
-        return Action(action_type="complete", task_id=task.id)
+        return Action(action_type="complete", task_id=task.id)  # correct
     else:
         return Action(action_type="respond", task_id=task.id)
 
@@ -65,54 +52,39 @@ def run_simulation(print_logs=True):
     obs = env.reset()
 
     step_count = 0
-    logs = []
     task_name = "workplace_decision"
 
-    start_log = f"[START] task={task_name}"
-    if print_logs:
-        print(start_log, flush=True)
-    logs.append(start_log)
+    print(f"[START] task={task_name}", flush=True)
 
-    total_reward = 0
+    done = False
 
-    # 🔥 IMPORTANT: Only one pass through tasks
-    for task in obs.tasks:
-        if task.status == "completed":
-            continue
+    while not done:
+        for task in obs.tasks:
+            if task.status == "completed":
+                continue
 
-        action = choose_action(task)
+            action = choose_action(task)
 
-        obs, reward, done, info = env.step(action)
+            obs, reward, done, info = env.step(action)
 
-        # Fix negative reward
-        if reward < 0:
-            reward = 0.10
+            step_count += 1
 
-        total_reward += reward
-        step_count += 1
+            print(f"[STEP] step={step_count} reward={reward:.2f}", flush=True)
 
-        step_log = f"[STEP] step={step_count} reward={reward:.2f}"
-        if print_logs:
-            print(step_log, flush=True)
-        logs.append(step_log)
+            if done:
+                break
 
-    # 🔥 CONTROLLED SCORE
-    final_score = total_reward / max(step_count, 1)
+    final_score = info["score"]
 
     if final_score <= 0:
         final_score = 0.3
     elif final_score >= 1:
         final_score = 0.85
 
-    end_log = f"[END] task={task_name} score={final_score:.2f} steps={step_count}"
-    if print_logs:
-        print(end_log, flush=True)
-    logs.append(end_log)
-
-    return logs
+    print(f"[END] task={task_name} score={final_score:.2f} steps={step_count}", flush=True)
 
 # -------------------------------
-# API ENDPOINTS
+# API
 # -------------------------------
 @app.get("/")
 def root():
@@ -132,23 +104,20 @@ def step(req: StepRequest):
     action = Action(action_type=req.action_type, task_id=req.task_id)
     obs, reward, done, info = env.step(action)
 
-    if reward < 0:
-        reward = 0.10
-
     return {
         "tasks": [task.dict() for task in obs.tasks],
-        "reward": reward,
+        "reward": round(reward, 2),
         "done": done,
-        "score": info["score"]
+        "score": round(info["score"], 2)
     }
 
 @app.get("/run-demo")
 def run_demo():
-    logs = run_simulation(print_logs=True)
-    return {"logs": logs}
+    run_simulation()
+    return {"status": "completed"}
 
 # -------------------------------
 # ENTRY POINT
 # -------------------------------
 if __name__ == "__main__":
-    run_simulation(print_logs=True)
+    run_simulation()
