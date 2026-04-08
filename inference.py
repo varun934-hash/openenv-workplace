@@ -1,31 +1,79 @@
+import os
 from fastapi import FastAPI
 from pydantic import BaseModel
+from openai import OpenAI
+
 from env import WorkplaceEnv
 from models import Action
 
 app = FastAPI()
 
+# Global environment
 env = WorkplaceEnv()
 
+# -------------------------------
+# LLM CLIENT (SAFE INIT)
+# -------------------------------
+client = None
+
+if os.environ.get("API_KEY") and os.environ.get("API_BASE_URL"):
+    client = OpenAI(
+        base_url=os.environ.get("API_BASE_URL"),
+        api_key=os.environ.get("API_KEY"),
+    )
+
 
 # -------------------------------
-# ACTION LOGIC
+# ACTION USING LLM + FALLBACK
 # -------------------------------
 def choose_action(task):
+    # 🔥 Try LLM (Scaler environment)
+    if client:
+        prompt = f"""
+        You are a workplace assistant.
+
+        Task:
+        {task.description}
+
+        Choose one action:
+        - complete
+        - schedule
+        - respond
+
+        Return only the action.
+        """
+
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+            action_text = response.choices[0].message.content.strip().lower()
+
+            if "complete" in action_text:
+                return Action(action_type="complete", task_id=task.id)
+            elif "schedule" in action_text:
+                return Action(action_type="schedule", task_id=task.id)
+            else:
+                return Action(action_type="respond", task_id=task.id)
+
+        except Exception:
+            pass  # fallback below
+
+    # 🔥 LOCAL FALLBACK (IMPORTANT)
     desc = task.description.lower()
 
     if "refund" in desc or "complaint" in desc:
         return Action(action_type="complete", task_id=task.id)
-
     elif "meeting" in desc:
         return Action(action_type="schedule", task_id=task.id)
-
     else:
         return Action(action_type="respond", task_id=task.id)
 
 
 # -------------------------------
-# CORE SIMULATION (IMPORTANT)
+# CORE SIMULATION (PRINTS LOGS)
 # -------------------------------
 def run_simulation(print_logs=True):
     obs = env.reset()
@@ -49,6 +97,7 @@ def run_simulation(print_logs=True):
                 continue
 
             action = choose_action(task)
+
             obs, reward, done, info = env.step(action)
 
             step_count += 1
@@ -72,7 +121,7 @@ def run_simulation(print_logs=True):
 
 
 # -------------------------------
-# API ENDPOINTS (Phase 1)
+# API ENDPOINTS (PHASE 1)
 # -------------------------------
 @app.get("/")
 def root():
@@ -93,6 +142,7 @@ class StepRequest(BaseModel):
 @app.post("/step")
 def step(req: StepRequest):
     action = Action(action_type=req.action_type, task_id=req.task_id)
+
     obs, reward, done, info = env.step(action)
 
     return {
@@ -110,7 +160,7 @@ def run_demo():
 
 
 # -------------------------------
-# 🔥 THIS FIXES SCALER
+# 🔥 REQUIRED FOR SCALER (CRITICAL)
 # -------------------------------
 if __name__ == "__main__":
     run_simulation(print_logs=True)
