@@ -1,5 +1,8 @@
+from fastapi import FastAPI
 from env import WorkplaceEnv
 from models import Action
+
+app = FastAPI()
 
 
 def choose_action(task):
@@ -15,15 +18,18 @@ def choose_action(task):
         return Action(action_type="respond", task_id=task.id)
 
 
-def run():
+def run_simulation():
     env = WorkplaceEnv()
     obs = env.reset()
 
     step_count = 0
     task_name = "workplace_decision"
 
-    # ✅ START BLOCK
+    logs = []
+
+    # START
     print(f"[START] task={task_name}", flush=True)
+    logs.append("[START]")
 
     done = False
 
@@ -33,28 +39,32 @@ def run():
                 continue
 
             action = choose_action(task)
-
             obs, reward, done, info = env.step(action)
 
             step_count += 1
 
-            # ✅ STEP BLOCK
-            print(
-                f"[STEP] step={step_count} reward={reward:.2f}",
-                flush=True
-            )
+            step_log = f"[STEP] step={step_count} reward={reward:.2f}"
+            print(step_log, flush=True)
+            logs.append(step_log)
 
             if done:
                 break
 
     final_score = info["score"]
 
-    # ✅ END BLOCK
-    print(
-        f"[END] task={task_name} score={final_score:.2f} steps={step_count}",
-        flush=True
-    )
+    end_log = f"[END] task={task_name} score={final_score:.2f} steps={step_count}"
+    print(end_log, flush=True)
+    logs.append(end_log)
+
+    return logs
 
 
-if __name__ == "__main__":
-    run()
+@app.get("/")
+def root():
+    return {"status": "running"}
+
+
+@app.get("/run-demo")
+def run_demo():
+    logs = run_simulation()
+    return {"logs": logs}
