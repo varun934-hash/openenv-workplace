@@ -6,47 +6,43 @@ from grader import grade
 class WorkplaceEnv:
     def __init__(self):
         self.tasks = []
+        self.task_scores = {}   # 🔥 track each task grading
 
     # -------------------------------
-    # RESET ENVIRONMENT
+    # RESET
     # -------------------------------
     def reset(self):
         self.tasks = easy_task()
+        self.task_scores = {}   # reset scores
         return self._get_observation()
 
     # -------------------------------
-    # STEP FUNCTION (WITH GRADER)
+    # STEP (FIXED PROPERLY)
     # -------------------------------
     def step(self, action):
-        reward = 0.1  # default small reward
+        reward = 0.1
 
         for task in self.tasks:
             if task.id == action.task_id and task.status == "pending":
 
-                # 🔥 USE GRADER (VERY IMPORTANT)
+                # 🔥 grade THIS specific task
                 reward = grade(task, action)
 
-                # mark task completed
+                # store score per task
+                self.task_scores[task.id] = reward
+
                 task.status = "completed"
                 break
 
-        # check if all tasks completed
         done = all(task.status == "completed" for task in self.tasks)
 
-        # 🔥 CALCULATE SCORE BASED ON ALL TASKS
-        scores = []
-        for task in self.tasks:
-            if task.status == "completed":
-                # use same action logic to evaluate
-                scores.append(grade(task, action))
-
-        # safe score calculation
-        if len(scores) == 0:
+        # 🔥 FINAL SCORE FROM ALL TASKS
+        if len(self.task_scores) == 0:
             final_score = 0.3
         else:
-            final_score = sum(scores) / len(scores)
+            final_score = sum(self.task_scores.values()) / len(self.tasks)
 
-        # 🔥 ENSURE SCORE STRICTLY BETWEEN (0,1)
+        # ensure strictly between (0,1)
         if final_score <= 0:
             final_score = 0.3
         elif final_score >= 1:
@@ -54,8 +50,6 @@ class WorkplaceEnv:
 
         return self._get_observation(), reward, done, {"score": final_score}
 
-    # -------------------------------
-    # OBSERVATION
     # -------------------------------
     def _get_observation(self):
         return Observation(tasks=self.tasks)
