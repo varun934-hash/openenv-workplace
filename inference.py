@@ -31,17 +31,31 @@ if API_KEY:
 # ACTION FUNCTION (IMPERFECT INTENTIONALLY)
 # -------------------------------
 def choose_action(task):
-    desc = task.description.lower()
+    prompt = f"""
+    Task: {task.description}
 
-    # 🔥 INTENTIONALLY MIX CORRECT + WRONG
-    if "refund" in desc:
-        return Action(action_type="respond", task_id=task.id)   # wrong
-    elif "meeting" in desc:
-        return Action(action_type="schedule", task_id=task.id)  # correct
-    elif "email" in desc:
-        return Action(action_type="respond", task_id=task.id)   # correct
-    elif "complaint" in desc:
-        return Action(action_type="complete", task_id=task.id)  # correct
+    Choose one action:
+    complete / schedule / respond
+
+    Return only the action.
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        action_text = response.choices[0].message.content.strip().lower()
+
+    except Exception:
+        # 🔥 ONLY fallback AFTER ATTEMPTING API CALL
+        action_text = "respond"
+
+    if "complete" in action_text:
+        return Action(action_type="complete", task_id=task.id)
+    elif "schedule" in action_text:
+        return Action(action_type="schedule", task_id=task.id)
     else:
         return Action(action_type="respond", task_id=task.id)
 
