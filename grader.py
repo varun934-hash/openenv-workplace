@@ -10,5 +10,4 @@ def grade(task, action):
     elif "complaint" in desc and action.action_type == "complete":
         return 0.9
 
-    # wrong action
-    return 0.3
+    return 0.4
