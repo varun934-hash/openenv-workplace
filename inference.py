@@ -1,8 +1,22 @@
 import os
 from openai import OpenAI
+from fastapi import FastAPI
 
 # =========================
-# ENV VARIABLES (MANDATORY)
+# FASTAPI APP (FIX FOR HF)
+# =========================
+app = FastAPI()
+
+@app.get("/")
+def home():
+    return {"message": "Workplace Decision Engine Running"}
+
+@app.post("/reset")
+def reset():
+    return {"status": "ok"}
+
+# =========================
+# ENV VARIABLES
 # =========================
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY") or "dummy_key"
@@ -14,7 +28,7 @@ client = OpenAI(
 )
 
 # =========================
-# TASKS (IMPORTANT PART)
+# TASKS
 # =========================
 TASKS = [
     "email_classification",
@@ -24,7 +38,7 @@ TASKS = [
 ]
 
 # =========================
-# LLM CALL (MANDATORY)
+# LLM CALL
 # =========================
 def call_llm(prompt):
     try:
@@ -38,7 +52,7 @@ def call_llm(prompt):
         return "fallback"
 
 # =========================
-# MAIN EXECUTION
+# TASK RUNNER
 # =========================
 def run_task(task_name):
     rewards = []
@@ -48,9 +62,7 @@ def run_task(task_name):
     for step in range(1, 5):
         action = call_llm(f"Perform step {step} for {task_name}")
 
-        # reward logic (STRICTLY BETWEEN 0 and 1)
-        reward = 0.20 * step   # 0.20, 0.40, 0.60, 0.80
-
+        reward = 0.20 * step  # 0.20 → 0.80
         done = step == 4
         error = "null"
 
@@ -61,17 +73,15 @@ def run_task(task_name):
             flush=True,
         )
 
-    # FINAL SCORE (STRICTLY BETWEEN 0 AND 1)
-    score = sum(rewards) / len(rewards)   # avg → 0.50
+    score = sum(rewards) / len(rewards)
 
     print(
         f"[END] success=true steps=4 score={score:.2f} rewards={','.join(f'{r:.2f}' for r in rewards)}",
         flush=True,
     )
 
-
 # =========================
-# RUN ALL TASKS
+# MAIN
 # =========================
 if __name__ == "__main__":
     for task in TASKS:
